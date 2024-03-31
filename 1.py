@@ -1,23 +1,15 @@
-# import streamlit as st
-# import pandas as pd
-# import plotly.express as px
-# from sklearn.preprocessing import StandardScaler
 
-# # Assuming 'comb_df' is your combined DataFrame and already prepared
-# comb_df = pd.read_csv('5ele.csv')
-# comb_df['Date'] = pd.to_datetime(comb_df['ActivityStartDate'])
-# comb_df['Year'] = comb_df['Date'].dt.year
-# comb_df['Month'] = comb_df['Date'].dt.month
-# # Function to scale values within each group, adjusted with error handling
-# def scale_values(df, column_name='ResultMeasureValue'):
-#     if df.empty:
-#         return df  # Return the empty DataFrame as is if no rows match
-#     scaler = StandardScaler()
-#     scaled_values = scaler.fit_transform(df[[column_name]])
-#     df['ScaledValue'] = scaled_values
-#     return df
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from sklearn.preprocessing import StandardScaler
+import json
+import geopandas as gpd
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import numpy as np
 
-# Define threshold values for each characteristic
 thresholds = {
     'nitrate': 10,
     'oxygen': 8,
@@ -27,43 +19,9 @@ thresholds = {
     'arsenic': 0.01
 }
 
-# # Streamlit UI
-# st.title("Water Quality Analysis Dashboard")
-
-# # Visualization type selection
-# vis_type = st.selectbox("Select the visualization type:", ["Average Scaled Value", "Tests Pass/Fail Stacked Bar"])
-
-# # Characteristic name selection
-# selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
-
-# if vis_type == "Average Scaled Value":
-#     # Filter DataFrame by selected characteristic
-#     df_filtered = comb_df[comb_df['CharacteristicName'].str.lower() == selected_characteristic.lower()]
-#     # Scale values if DataFrame is not empty
-#     if not df_filtered.empty:
-#         df_scaled = scale_values(df_filtered)
-#         # Plotting
-#         fig = px.line(df_scaled, x='Year', y='ScaledValue', color='CharacteristicName', title=f"Average Scaled Values for {selected_characteristic}")
-#         st.plotly_chart(fig)
-#     else:
-#         st.write("No data available for the selected characteristic.")
-
-# elif vis_type == "Tests Pass/Fail Stacked Bar":
-#     # Implement the logic for the stacked bar chart, similar to the previous discussions
-#     pass  # Placeholder for the actual implementation
-
-# # Ensure to adjust 'comb_df', column names, and other placeholders to fit your actual data structure
 
 
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from sklearn.preprocessing import StandardScaler
-import json
-import geopandas as gpd
-import plotly.express as px
 
-# Load and prepare the DataFrame
 comb_df = pd.read_csv('5ele.csv')
 comb_df['Date'] = pd.to_datetime(comb_df['ActivityStartDate'])
 comb_df['Year'] = comb_df['Date'].dt.year
@@ -77,30 +35,57 @@ all_kansas_counties_df = pd.DataFrame(all_kansas_counties, columns=['County Name
 avg_ph['County Name'] = avg_ph['County Name'].str.title()
 complete_counties = all_kansas_counties_df.merge(avg_ph, on='County Name', how='left')
 
-# Function to scale values within each group
+population_df = pd.read_excel('population.xlsx')
+
+
+population_df['County'] = population_df['County'].str.replace(r"\.|\sCounty, Kansas", "", regex=True).str.strip()
+
+
+population_long_df = population_df.melt(id_vars='County', var_name='Year', value_name='Population')
+population_long_df['Year'] = population_long_df['Year'].astype(int)
+
+
+comb_df['Year'] = comb_df['Year'].astype(int)
+
+
+unique_counties = comb_df['County Name'].unique()
+
+
+population_filtered_df = population_long_df[population_long_df['County'].isin(unique_counties)]
+
+
+combined_df = pd.merge(comb_df, population_filtered_df, left_on=['County Name', 'Year'], right_on=['County', 'Year'], how='inner')
+
+
+
+
 def scale_values(group):
     scaler = StandardScaler()
     scaled_values = scaler.fit_transform(group['ResultMeasureValue'].values.reshape(-1, 1))
-    group['ScaledValue'] = scaled_values.flatten()  # Assign scaled values
+    group['ScaledValue'] = scaled_values.flatten()
     return group
 
-# Apply scaling function and ensure 'CharacteristicName' is a column
-df_scaled = comb_df.groupby('CharacteristicName', as_index=False).apply(scale_values)
-df_scaled = df_scaled.reset_index(drop=True)  # Reset index to avoid 'CharacteristicName' ambiguity
 
-# Group by Year, Month, and CharacteristicName to calculate monthly average scaled values
+df_scaled = comb_df.groupby('CharacteristicName', as_index=False).apply(scale_values)
+df_scaled = df_scaled.reset_index(drop=True)
+
+
 grouped_df = df_scaled.groupby(['Year', 'Month', 'CharacteristicName'], as_index=False)['ScaledValue'].mean()
 
-# Convert Year and Month into a Date for plotting
+
 grouped_df['Date'] = pd.to_datetime(grouped_df[['Year', 'Month']].assign(DAY=1))
 
-# Streamlit UI for visualization selection and characteristic name selection
+
+
+
 st.title("Water Quality Analysis Dashboard")
-vis_type = st.selectbox("Select the visualization type:", ["Average Scaled Value", "Tests Pass/Fail Stacked Bar", "Avg pH choropleth"])
-selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
+vis_type = st.selectbox("Select the visualization type:", ["Average Scaled Value", "Tests Pass/Fail Stacked Bar", "Avg pH choropleth",
+                                                           "Population Plot"])
+
 
 if vis_type == "Average Scaled Value":
-    # Filter based on selected characteristic and plot
+    
+    selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
     filtered_grouped_df = grouped_df[grouped_df['CharacteristicName'].str.lower() == selected_characteristic.lower()]
     if not filtered_grouped_df.empty:
         fig = px.line(filtered_grouped_df, x='Date', y='ScaledValue', color='CharacteristicName',
@@ -111,34 +96,102 @@ if vis_type == "Average Scaled Value":
     else:
         st.write("No data available for the selected characteristic.")
 elif vis_type == "Tests Pass/Fail Stacked Bar":
+    selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
     df_filtered = comb_df[comb_df['CharacteristicName'].str.lower() == selected_characteristic.lower()]
-    # Determine pass/fail based on threshold
+    
     threshold = thresholds[selected_characteristic]
     df_filtered['Status'] = df_filtered['ResultMeasureValue'].apply(lambda x: 'Pass' if x <= threshold else 'Fail')
     
-    # Count the number of Pass and Fail by Year
+ 
     counts = df_filtered.groupby(['Year', 'Status'])['CharacteristicName'].count().reset_index()
     
-    # Create stacked bar chart
+ 
     fig = px.bar(counts, x='Year', y='CharacteristicName', color='Status', barmode='stack', 
                  labels={'CharacteristicName': 'Number of Tests'}, title=f'Test Results for {selected_characteristic}')
     st.plotly_chart(fig)
 elif vis_type == "Avg pH choropleth":
     complete_counties['ResultMeasureValue'].fillna(-1, inplace=True)
 
-    fig = px.choropleth(complete_counties,
-                    geojson=kansas_geojson,  # Use your GeoJSON data here
-                    locations='County Name',
-                    featureidkey="properties.COUNTY",  # Adjusted to match your GeoJSON file
-                    color='ResultMeasureValue',
-                    color_continuous_scale="Viridis",
-                    scope="usa",
-                    labels={'ResultMeasureValue':'Average pH'},
-                    title='Average pH Levels by County in Kansas',
-                    hover_name='County Name',  # Show county names on hover
-                    # Use a range color to set the special value (-1) to white
-                    range_color=[0, max(complete_counties['ResultMeasureValue'])]
-                   )
+    complete_counties['ResultMeasureValue'] = complete_counties['ResultMeasureValue'].astype(float)
+
+
+    min_val = complete_counties[complete_counties['ResultMeasureValue'] > -1]['ResultMeasureValue'].min()
+    max_val = complete_counties['ResultMeasureValue'].max()
+
+
+    step = (max_val - min_val) / 5
+    custom_color_scale = [
+        [0.0, "#D3D3D3"],
+        [(min_val - -1) / (max_val - -1), "#D3D3D3"],
+        [(min_val + step - -1) / (max_val - -1), px.colors.sequential.Plasma[0]],
+        [(min_val + 2*step - -1) / (max_val - -1), px.colors.sequential.Plasma[1]],
+        [(min_val + 3*step - -1) / (max_val - -1), px.colors.sequential.Plasma[2]],
+        [(min_val + 4*step - -1) / (max_val - -1), px.colors.sequential.Plasma[3]],
+        [1.0, px.colors.sequential.Plasma[-1]],
+    ]
+
+    fig = px.choropleth(
+        complete_counties,
+        geojson=kansas_geojson,
+        locations='County Name',
+        featureidkey="properties.COUNTY",
+        color='ResultMeasureValue',
+        color_continuous_scale=custom_color_scale,
+        range_color=[-1, max_val],
+        labels={'ResultMeasureValue': 'Average pH'},
+        title='Average pH Levels by County in Kansas',
+    )
+
+
+    fig.update_layout(
+        coloraxis_colorbar=dict(
+            title='Average pH',
+            tickvals=np.linspace(-1, max_val, num=7),
+            ticktext=[f"{val:.2f}" for val in np.linspace(-1, max_val, num=7)]
+        )
+    )
 
     fig.update_geos(fitbounds="locations", visible=False)
-    st.plotly_chart(fig) 
+    st.plotly_chart(fig)
+elif vis_type == "Population Plot":
+ 
+    selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
+    county_options = combined_df['County Name'].unique()
+    selected_county = st.selectbox("Select a County:", options=county_options)
+
+  
+    filtered_data = combined_df[(combined_df['County Name'] == selected_county) & 
+                                (combined_df['CharacteristicName'].str.lower() == selected_characteristic.lower())]
+    
+
+    avg_metric_per_year = filtered_data.groupby('Year')['ResultMeasureValue'].mean().reset_index()
+
+
+    county_population = population_filtered_df[population_filtered_df['County'].isin([selected_county]) & 
+                                               population_filtered_df['Year'].isin(avg_metric_per_year['Year'])]
+
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+
+    fig.add_trace(go.Scatter(x=avg_metric_per_year['Year'], y=avg_metric_per_year['ResultMeasureValue'],
+                             name=f'Avg {selected_characteristic}', mode='lines+markers'), secondary_y=False)
+
+
+    fig.add_trace(go.Scatter(x=county_population['Year'], y=county_population['Population'],
+                             name='Population', mode='lines+markers'), secondary_y=True)
+
+
+    fig.update_layout(title_text=f"Average {selected_characteristic} and Population Over Time for {selected_county}")
+
+  
+    fig.update_xaxes(title_text="Year")
+
+
+    fig.update_yaxes(title_text=f"Average {selected_characteristic}", secondary_y=False)
+    fig.update_yaxes(title_text="Population", secondary_y=True)
+
+    st.plotly_chart(fig)
+
+
+
