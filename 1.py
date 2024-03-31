@@ -79,14 +79,14 @@ grouped_df['Date'] = pd.to_datetime(grouped_df[['Year', 'Month']].assign(DAY=1))
 
 
 st.title("Water Quality Analysis Dashboard")
-vis_type = st.selectbox("Select the visualization type:", ["Average Scaled Value", "Tests Pass/Fail Stacked Bar", "Avg pH choropleth",
+vis_type = st.selectbox("Select the visualization type:", ["Average Scaled Value", "Combined Average Scaled Values", "Tests Pass/Fail Stacked Bar", "Avg pH choropleth",
                                                            "Population Plot"])
 
 
 if vis_type == "Average Scaled Value":
     
     selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
-    filtered_grouped_df = grouped_df[grouped_df['CharacteristicName'].str.lower() == selected_characteristic.lower()]
+    filtered_grouped_df =   [grouped_df['CharacteristicName'].str.lower() == selected_characteristic.lower()]
     if not filtered_grouped_df.empty:
         fig = px.line(filtered_grouped_df, x='Date', y='ScaledValue', color='CharacteristicName',
                       title=f'Monthly Average Scaled Values by CharacteristicName for {selected_characteristic}',
@@ -95,6 +95,23 @@ if vis_type == "Average Scaled Value":
         st.plotly_chart(fig)
     else:
         st.write("No data available for the selected characteristic.")
+elif vis_type == "Combined Average Scaled Values":
+    grouped_df = df_scaled.groupby(['Year', 'Month', 'CharacteristicName'])['ScaledValue'].mean().reset_index()
+
+
+    grouped_df['Date'] = pd.to_datetime(grouped_df[['Year', 'Month']].assign(DAY=1))
+
+
+    fig = px.line(grouped_df, x='Date', y='ScaledValue', color='CharacteristicName',
+              title='Monthly Average Scaled Values by CharacteristicName for Kansas State',
+              labels={'ScaledValue': 'Average Scaled Value', 'Date': 'Date'},
+              markers=True)
+
+
+    fig.update_layout(xaxis_title='Date', yaxis_title='Average Scaled Value',
+                  hovermode='x unified')
+
+    st.plotly_chart(fig)
 elif vis_type == "Tests Pass/Fail Stacked Bar":
     selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
     df_filtered = comb_df[comb_df['CharacteristicName'].str.lower() == selected_characteristic.lower()]
