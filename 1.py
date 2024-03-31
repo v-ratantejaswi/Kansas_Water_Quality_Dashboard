@@ -86,7 +86,7 @@ vis_type = st.selectbox("Select the visualization type:", ["Average Scaled Value
 if vis_type == "Average Scaled Value":
     
     selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
-    filtered_grouped_df =   [grouped_df['CharacteristicName'].str.lower() == selected_characteristic.lower()]
+    filtered_grouped_df = grouped_df[grouped_df['CharacteristicName'].str.lower() == selected_characteristic.lower()]
     if not filtered_grouped_df.empty:
         fig = px.line(filtered_grouped_df, x='Date', y='ScaledValue', color='CharacteristicName',
                       title=f'Monthly Average Scaled Values by CharacteristicName for {selected_characteristic}',
