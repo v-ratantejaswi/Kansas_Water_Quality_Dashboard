@@ -37,7 +37,7 @@ Contributions to this project are welcome. Please fork the repository and submit
 
 ##Contact
 - Email: ratantejaswi@gmail.com
-- LinkedIn: Ratan Tejaswi Vadapalli
+- LinkedIn: https://www.linkedin.com/in/ratan-tejaswi-vadapalli/
 
 ## Acknowledgements
 All contributors who spent time to help this project grow.
