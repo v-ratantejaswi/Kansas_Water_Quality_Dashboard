@@ -1,4 +1,4 @@
-# Comprehensive Water Quality Analysis in Kansas
+# Kansas Water Quality Dashboard
 
 ## Project Overview
 This project aims to analyze water quality across Kansas by integrating various datasets, including water quality measurements, location information, and socio-economic data. Our goal is to provide insights into the water safety and ecological balance of the region, informing public health and environmental policy.
