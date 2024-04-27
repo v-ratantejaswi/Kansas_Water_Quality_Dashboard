@@ -27,6 +27,8 @@ comb_df['Date'] = pd.to_datetime(comb_df['ActivityStartDate'])
 comb_df['Year'] = comb_df['Date'].dt.year
 comb_df['Month'] = comb_df['Date'].dt.month
 
+print(comb_df['Year'].unique())
+
 avg_ph = pd.read_csv('avg_ph.csv')
 with open('KS_Counties.geojson', 'r') as f:
     kansas_geojson = json.load(f)
@@ -45,6 +47,20 @@ population_long_df = population_df.melt(id_vars='County', var_name='Year', value
 population_long_df['Year'] = population_long_df['Year'].astype(int)
 
 
+# Load the income data
+income_df = pd.read_csv('kansas-income.csv')
+
+# Rename the income columns to keep only the year
+income_df.rename(columns=lambda x: x.strip().replace('Income ', ''), inplace=True)
+
+# Transform the income data into a long format
+income_long_df = income_df.melt(id_vars=['County Name', 'Rank in State 2022', 'Percent Change 2021', 'Percent Change 2022', 'Rank of Percent Change 2022', 'State'], 
+                                var_name='Year', value_name='Income')
+
+# Make sure 'Year' is an integer
+income_long_df['Year'] = income_long_df['Year'].astype(int)
+
+
 comb_df['Year'] = comb_df['Year'].astype(int)
 
 
@@ -56,8 +72,10 @@ population_filtered_df = population_long_df[population_long_df['County'].isin(un
 
 combined_df = pd.merge(comb_df, population_filtered_df, left_on=['County Name', 'Year'], right_on=['County', 'Year'], how='inner')
 
-
-
+combined_income_df = pd.merge(combined_df, income_long_df, 
+                              left_on=['County Name', 'Year'], 
+                              right_on=['County Name', 'Year'], 
+                              how='inner')
 
 def scale_values(group):
     scaler = StandardScaler()
@@ -80,7 +98,7 @@ grouped_df['Date'] = pd.to_datetime(grouped_df[['Year', 'Month']].assign(DAY=1))
 
 st.title("Water Quality Analysis Dashboard")
 vis_type = st.selectbox("Select the visualization type:", ["Average Scaled Value", "Combined Average Scaled Values", "Tests Pass/Fail Stacked Bar", "Avg pH choropleth",
-                                                           "Population Plot"])
+                                                           "Population Plot", "Income Plot"])
 
 
 if vis_type == "Average Scaled Value":
@@ -207,6 +225,51 @@ elif vis_type == "Population Plot":
 
     fig.update_yaxes(title_text=f"Average {selected_characteristic}", secondary_y=False)
     fig.update_yaxes(title_text="Population", secondary_y=True)
+
+    st.plotly_chart(fig)
+
+# elif vis_type == "Income Plot":
+#     selected_county = st.selectbox("Select a County for Income Data:", options=combined_income_df['County Name'].unique())
+#     filtered_income_data = combined_income_df[combined_income_df['County Name'] == selected_county]
+
+#     # Create the plot for income over time for the selected county
+#     fig_income = px.line(filtered_income_data, x='Year', y='Income', title=f"Income Over Time for {selected_county}",
+#                          labels={'Income': 'Average Income'}, markers=True)
+#     fig_income.update_layout(xaxis_title='Year', yaxis_title='Average Income', hovermode='x unified')
+#     st.plotly_chart(fig_income)
+
+elif vis_type == "Income Plot":
+    # Dropdown to select the county
+    selected_county = st.selectbox("Select a County for Income Data:", options=combined_income_df['County Name'].unique())
+    
+    # Dropdown to select the characteristic name
+    selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
+    
+    # Filtering data for the selected county and characteristic
+    filtered_income_data = combined_income_df[combined_income_df['County Name'] == selected_county]
+    filtered_characteristic_data = comb_df[(comb_df['County Name'] == selected_county) & 
+                                           (comb_df['CharacteristicName'].str.lower() == selected_characteristic.lower())]
+
+    # Grouping data to get average values per year for the characteristic and income
+    avg_income_per_year = filtered_income_data.groupby('Year')['Income'].mean().reset_index()
+    avg_characteristic_per_year = filtered_characteristic_data.groupby('Year')['ResultMeasureValue'].mean().reset_index()
+
+    # Creating subplots
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Adding income trace
+    fig.add_trace(go.Scatter(x=avg_income_per_year['Year'], y=avg_income_per_year['Income'],
+                             name='Average Income', mode='lines+markers'), secondary_y=False)
+
+    # Adding characteristic trace
+    fig.add_trace(go.Scatter(x=avg_characteristic_per_year['Year'], y=avg_characteristic_per_year['ResultMeasureValue'],
+                             name=f'Avg {selected_characteristic}', mode='lines+markers'), secondary_y=True)
+
+    # Update plot layout
+    fig.update_layout(title_text=f"Income and {selected_characteristic} Over Time for {selected_county}")
+    fig.update_xaxes(title_text="Year")
+    fig.update_yaxes(title_text="Average Income", secondary_y=False)
+    fig.update_yaxes(title_text=f"Average {selected_characteristic}", secondary_y=True)
 
     st.plotly_chart(fig)
 
