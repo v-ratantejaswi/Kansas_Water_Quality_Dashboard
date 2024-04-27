@@ -220,7 +220,9 @@ elif vis_type == "Population Plot":
     fig.update_layout(title_text=f"Average {selected_characteristic} and Population Over Time for {selected_county}")
 
   
-    fig.update_xaxes(title_text="Year")
+    fig.update_xaxes(title_text="Year",
+                    tickvals=county_population['Year'].unique(),
+                    dtick=1)
 
 
     fig.update_yaxes(title_text=f"Average {selected_characteristic}", secondary_y=False)
@@ -267,7 +269,9 @@ elif vis_type == "Income Plot":
 
     # Update plot layout
     fig.update_layout(title_text=f"Income and {selected_characteristic} Over Time for {selected_county}")
-    fig.update_xaxes(title_text="Year")
+    fig.update_xaxes(title_text="Year",
+                    tickvals=avg_characteristic_per_year['Year'].unique(),
+                    dtick=1)
     fig.update_yaxes(title_text="Average Income", secondary_y=False)
     fig.update_yaxes(title_text=f"Average {selected_characteristic}", secondary_y=True)
 
