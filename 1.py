@@ -143,6 +143,11 @@ elif vis_type == "Tests Pass/Fail Stacked Bar":
  
     fig = px.bar(counts, x='Year', y='CharacteristicName', color='Status', barmode='stack', 
                  labels={'CharacteristicName': 'Number of Tests'}, title=f'Test Results for {selected_characteristic}')
+    fig.update_xaxes(
+        title_text="Year",
+        tickvals=counts['Year'].unique(), 
+        dtick=1 
+    )
     st.plotly_chart(fig)
 elif vis_type == "Avg pH choropleth":
     complete_counties['ResultMeasureValue'].fillna(-1, inplace=True)
@@ -233,33 +238,25 @@ elif vis_type == "Population Plot":
 
 
 elif vis_type == "Income Plot":
-    # Dropdown to select the county
     selected_county = st.selectbox("Select a County for Income Data:", options=combined_income_df['County Name'].unique())
     
-    # Dropdown to select the characteristic name
     selected_characteristic = st.selectbox("Select Characteristic Name:", options=list(thresholds.keys()))
     
-    # Filtering data for the selected county and characteristic
     filtered_income_data = combined_income_df[combined_income_df['County Name'] == selected_county]
     filtered_characteristic_data = comb_df[(comb_df['County Name'] == selected_county) & 
                                            (comb_df['CharacteristicName'].str.lower() == selected_characteristic.lower())]
 
-    # Grouping data to get average values per year for the characteristic and income
     avg_income_per_year = filtered_income_data.groupby('Year')['Income'].mean().reset_index()
     avg_characteristic_per_year = filtered_characteristic_data.groupby('Year')['ResultMeasureValue'].mean().reset_index()
 
-    # Creating subplots
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # Adding income trace
     fig.add_trace(go.Scatter(x=avg_income_per_year['Year'], y=avg_income_per_year['Income'],
                              name='Average Income', mode='lines+markers'), secondary_y=False)
 
-    # Adding characteristic trace
     fig.add_trace(go.Scatter(x=avg_characteristic_per_year['Year'], y=avg_characteristic_per_year['ResultMeasureValue'],
                              name=f'Avg {selected_characteristic}', mode='lines+markers'), secondary_y=True)
 
-    # Update plot layout
     fig.update_layout(title_text=f"Income and {selected_characteristic} Over Time for {selected_county}")
     fig.update_xaxes(title_text="Year",
                     tickvals=avg_characteristic_per_year['Year'].unique(),
