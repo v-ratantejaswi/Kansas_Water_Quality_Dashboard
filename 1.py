@@ -230,15 +230,7 @@ elif vis_type == "Population Plot":
 
     st.plotly_chart(fig)
 
-# elif vis_type == "Income Plot":
-#     selected_county = st.selectbox("Select a County for Income Data:", options=combined_income_df['County Name'].unique())
-#     filtered_income_data = combined_income_df[combined_income_df['County Name'] == selected_county]
 
-#     # Create the plot for income over time for the selected county
-#     fig_income = px.line(filtered_income_data, x='Year', y='Income', title=f"Income Over Time for {selected_county}",
-#                          labels={'Income': 'Average Income'}, markers=True)
-#     fig_income.update_layout(xaxis_title='Year', yaxis_title='Average Income', hovermode='x unified')
-#     st.plotly_chart(fig_income)
 
 elif vis_type == "Income Plot":
     # Dropdown to select the county
